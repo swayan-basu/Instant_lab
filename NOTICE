@@ -1,0 +1,22 @@
+Instant Lab
+Copyright 2026 Swayan Basu
+
+This repository contains project-owned shell scripts, Docker configuration,
+and documentation licensed under the Apache License, Version 2.0. See LICENSE.
+
+Third-party components are not relicensed by this notice. They remain under
+their respective licenses and retain their original copyright and attribution
+notices. Important examples include:
+
+- Wazuh and the vendored wazuh-docker directory: see their included license
+  files and copyright notices. Some Wazuh components are GPLv2 licensed.
+- Docker images used by the Compose files and launcher scripts: each image is
+  governed by its publisher's license and terms.
+- Nuclei templates downloaded at runtime: governed by their upstream license
+  and attribution requirements.
+- Kali, Parrot, DVWA, OWASP Juice Shop, Elasticsearch, Logstash, Kibana, and
+  other external software: governed by their respective upstream licenses.
+
+The Instant Lab project does not grant permission to use third-party names,
+trademarks, images, or software outside the rights provided by their respective
+owners.
