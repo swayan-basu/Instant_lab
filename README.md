@@ -1,229 +1,221 @@
-# Welcome to Instant Lab - Raspberry Pi & Docker
-[![CI](https://github.com/swayanbasu04/Instant_lab/actions/workflows/blank.yml/badge.svg)](https://github.com/swayanbasu04/Instant_lab/actions/workflows/blank.yml)
+# Instant Lab
 
-## Overview
+Instant Lab is a Docker-based cybersecurity practice environment for Raspberry Pi and Linux systems. It provides an interactive terminal dashboard for launching security tools, intentionally vulnerable web applications, and monitoring stacks.
 
-A Security Operations Center (SOC) homelab environment built on Raspberry Pi and Docker. This project provides an instant, containerized cybersecurity testing and Security Operations platform with pre-configured scripts for running various security tools, vulnerability assessments, and penetration testing exercises.
+Use this project only in an isolated lab or against systems you own or are explicitly authorized to test.
 
-**Key Features:**
->> Fully containerized environment using Docker
->> Multiple security-focused Linux distributions (Parrot Security, Kali Linux)
->> Vulnerable web application for practice (DVWA, Juice shop)
->> Pre-installed penetration testing tools
->> Persistent data storage for your work
+## Features
 
-## Prerequisites
+- Interactive launcher for all lab services
+- Docker installation and daemon checks
+- Port conflict checks before services start
+- Parrot Security and Kali Linux containers
+- Nuclei vulnerability scanner
+- DVWA, OWASP Juice Shop, and bWAPP targets
+- ELK and Wazuh monitoring stacks
+- Wazuh agent deployment
+- Container status and cleanup utilities
 
-- Raspberry Pi (or any arm based Linux system)
-- Docker installed (scripts will install Docker if not present)
-- Sudo privileges
-- Internet connection for initial setup
+## Requirements
+
+- Linux system, Raspberry Pi, or another linux compatible computer
+- At least 4 GB RAM recommended for the ELK or Wazuh stacks
+
+The security-tool containers may require additional CPU, memory, and disk space. Start only the services needed for your exercise.
 
 ## Quick Start
 
-1. **Clone this repository:**
-   ```bash
-   git clone https://github.com/swayanbasu04/Instant_lab
-   cd Instant_lab
-   ```
+Clone the repository:
 
-2. **Make the main script executable:**
-   ```bash
-   chmod +x start_main.sh
-   ```
-
-3. **Run the main menu:**
-   ```bash
-   ./start_main.sh
-   ```
-
-4. **Select your desired container** from the interactive menu (1-5)
-
-## Available Containers
-
-### 1. Parrot Security (`start_parrot.sh`)
-**Description:** Full-featured Parrot Security OS container with comprehensive penetration testing tools.
-
-**Included Tools:**
-- Network scanning: `nmap`, `net-tools`
-- Web application testing: `nikto`, `gobuster`, `sqlmap`
-- Password cracking: `hashcat`, `john`, `hydra`
-- Exploitation: `metasploit-framework`
-- Network analysis: `tcpdump`, `tshark`
-- Reconnaissance: `recon-ng`, `dnsmap`
-- SSL/TLS testing: `sslscan`
-- And many more...
-
-**Usage:**
 ```bash
-./start_parrot.sh
-# or choose option 1 from start_main.sh
+git clone https://github.com/swayan-basu/Instant_lab.git
+cd Instant_lab
+chmod +x start_main.sh
+find scripts -type f -name '*.sh' -exec chmod +x {} +
+./start_main.sh
 ```
 
-**Features:**
-- Network host mode for full network access
-- Mounted work directory at `/work`
-- Persistent storage
+On first launch, `start_main.sh`:
 
-### 2. Metasploit (`start_msf.sh`)
-**Description:** Dedicated Metasploit Framework container for exploitation and vulnerability assessment.
+1. Checks whether Docker is installed and accessible.
+2. Offers to run `scripts/setup/start_dock.sh` if Docker is missing.
+3. Creates the shared `instant_lab_network` Docker network when needed.
+4. Optionally displays the current container status.
+5. Opens the interactive service menu
 
-**Usage:**
-```bash
-./start_msf.sh
-# or choose option 2 from start_main.sh
+The menu stays open after a service starts. Choose `0` to exit the menu; running containers continue in the background.
+
+### Wazuh Login
+
+The current single-node configuration uses:
+
+```text
+Username: admin
+Password: SecretPassword
 ```
 
-**Features:**
-- Full Metasploit Framework
-- Persistent data in `msf/` directory (mapped to container's `/root/`)
-- Network host mode
+The Wazuh dashboard uses a self-signed certificate, so a browser warning may appear on first access.
+These credentials are intended for local lab use only. Change the password before allowing access from another network.
 
-### 3. Tshark (`start_tshark.sh`)
-**Description:** Lightweight network protocol analyzer container.
+## Direct Launchers
 
-**Usage:**
+Every service can be started without the dashboard. Run commands from the repository root:
+
 ```bash
-./start_tshark.sh
-# or choose option 3 from start_main.sh
+bash scripts/scanners/start_parrot.sh
+bash scripts/scanners/start_rkali.sh
+bash scripts/scanners/start_nuclei.sh
+
+bash scripts/targets/start_dvwa.sh
+bash scripts/targets/start_juice.sh
+bash scripts/targets/start_bwapp.sh
+
+bash scripts/siem/start_elk.sh
+bash scripts/siem/start_wazuh.sh
+bash scripts/siem/start_wazuh_agent.sh
 ```
 
-**Use Cases:**
-- Network traffic analysis
-- Packet capture and inspection
-- Protocol troubleshooting
+## Docker Network
 
-### 4. Kali Linux (`start_rkali.sh`)
-**Description:** Custom-built Kali Linux container with pre-installed security tools.
+The interactive dashboard creates a bridge network named:
 
-**Included Tools:**
-- Similar toolkit as Parrot Security
-- Based on `kalilinux/kali-rolling:latest`
-- Customizable via `rkali/Dockerfile`
-
-**Usage:**
-```bash
-./start_rkali.sh
-# or choose option 4 from start_main.sh
+```text
+instant_lab_network
 ```
 
-### 5. DVWA (`start_dvwa.sh`)
-**Description:** Damn Vulnerable Web Application - A deliberately vulnerable PHP/MySQL web application for security training.
+Inspect it with:
 
-**Usage:**
 ```bash
-./start_dvwa.sh
-# or choose option 5 from start_main.sh
+docker network inspect instant_lab_network
 ```
 
-**Access:** `http://localhost:8888`
+The root `docker-compose.yml` also defines a Compose network named `instant-lab-net`. These names are different. If a scanner cannot resolve a target by its container name, verify that both containers are attached to the same Docker network:
 
-**Default Credentials:**
-- Username: `admin`
-- Password: `password`
-
-**Practice Areas:**
-- SQL Injection
-- XSS (Cross-Site Scripting)
-- CSRF (Cross-Site Request Forgery)
-- File Inclusion
-- Command Injection
-- And more...
-
-### 6. Juice Shop (`start_juice.sh`)
-**Description:** OWASP Juice Shop - A modern, intentionally vulnerable JavaScript web application for security training and awareness.
-
-**Usage:**
 ```bash
-./start_juice.sh
-# or choose option 6 from start_main.sh
+docker inspect CONTAINER_NAME
+docker network connect instant_lab_network CONTAINER_NAME
 ```
 
-**Access:** `http://localhost:3000`
+Use the second command only when the target is not already attached to the required network.
 
-**Features:**
-- Modern web application vulnerabilities
-- Over 100 security challenges
-- Gamified learning experience
-- Real-world vulnerability patterns
-- Multi-language support
-- RESTful API testing
+## Container Management
 
-**Practice Areas:**
-- Broken Authentication
-- Broken Access Control
-- Sensitive Data Exposure
-- XML External Entities (XXE)
-- Insecure Deserialization
-- Injection Attacks
-- Cross-Site Scripting (XSS)
-- Cross-Site Request Forgery (CSRF)
-- Using Components with Known Vulnerabilities
-- Insufficient Logging & Monitoring
+List running containers:
 
-### 7. ELK stack (`start_elk.sh`)
-**Description:** Elasticsearch, Logstash, and Kibana (ELK) stack for log aggregation, analysis, and visualization. A powerful SIEM (Security Information and Event Management) platform for security monitoring and threat detection.
-
-**Usage:**
 ```bash
-./start_elk.sh
-# or choose option 7 from start_main.sh
+docker ps
 ```
 
-**Access:**
-- Kibana: `http://localhost:5601`
-- Elasticsearch: `http://localhost:9200`
-- Logstash API: `http://localhost:9600`
-- Logstash Beats Input: `port 5044`
+List all containers:
 
-**Components:**
-- **Elasticsearch:** Distributed search and analytics engine for storing and indexing logs
-- **Logstash:** Data processing pipeline for ingesting, transforming, and forwarding logs
-- **Kibana:** Visualization and exploration interface for analyzing data
-
-
-## Tips & Best Practices
-
-1. **Permissions:** After first-time Docker installation, you may need to log out and back in, or run:
-   ```bash
-   newgrp docker
-   ```
-
-2. **Data Persistence:** Use the `work/` and `msf/` directories to store your files persistently across container sessions.
-
-3. **Network Mode:** Parrot Security and Metasploit containers use `--network host` for full network access. Be cautious when using these tools.
-
-4. **Resource Usage:** Monitor your Raspberry Pi's resources when running multiple containers simultaneously.
-
-5. **Updates:** Keep your containers updated:
-   ```bash
-   docker pull parrotsec/security
-   docker pull kalilinux/kali-rolling
-   docker pull vulnerables/web-dvwa
-   ```
-
-## Troubleshooting
-
-**Docker not starting:**
 ```bash
-sudo systemctl start docker
-sudo systemctl enable docker
+docker ps -a
 ```
 
-**Permission denied:**
+View logs:
+
 ```bash
-sudo usermod -aG docker $USER
+docker logs CONTAINER_NAME
+docker logs -f CONTAINER_NAME
+```
+
+Stop or restart a container:
+
+```bash
+docker stop CONTAINER_NAME
+docker start CONTAINER_NAME
+```
+
+The status utility can optionally stop and remove all containers:
+
+```bash
+bash scripts/setup/status.sh
+```
+
+Review the prompt carefully before confirming cleanup. To remove unused Docker resources, use:
+
+```bash
+docker system prune
+```
+
+## Docker Setup and Permissions
+
+If Docker is not installed, run:
+
+```bash
+bash scripts/setup/start_dock.sh
+```
+
+The setup script installs Docker on Debian-based systems, starts the Docker service, and adds the current user to the `docker` group. Log out and back in, or run:
+
+```bash
 newgrp docker
 ```
 
-**Container won't start:**
+Then verify access:
+
 ```bash
-# Check Docker is running
-docker ps
-# View logs
-docker logs <container-id>
+docker info
 ```
 
-## Legal Disclaimer
+## Troubleshooting
 
-⚠️ **WARNING:** This homelab is designed for educational purposes and authorized security testing only. Always obtain proper authorization before testing systems you don't own. Unauthorized access to computer systems is illegal.
+### Docker daemon is not running
+
+```bash
+sudo systemctl start docker
+sudo systemctl enable docker
+docker info
+```
+
+### Permission denied when using Docker
+
+```bash
+sudo usermod -aG docker "$USER"
+newgrp docker
+```
+
+### A port is already in use
+
+Check the process using a port:
+
+```bash
+sudo ss -tulpn | grep ':8080'
+```
+
+Replace `8080` with the affected port. Stop the conflicting service before starting the lab service.
+
+### A container exits or fails to start
+
+```bash
+docker ps -a
+docker logs CONTAINER_NAME
+df -h
+free -h
+```
+
+For ELK and Wazuh, allow extra time for the indexer and dashboard to initialize. Wazuh also configures the host kernel setting `vm.max_map_count` for the indexer.
+
+### Check script syntax
+
+```bash
+bash -n main.sh
+find scripts -type f -name '*.sh' -exec bash -n {} +
+```
+
+If available, ShellCheck can provide additional static analysis:
+
+```bash
+shellcheck main.sh scripts/**/*.sh
+```
+> **Warning:** The `work/`, `msf/`, `wazuh/`, and `wazuh-agent/` directories may contain persistent data created by the lab services. Do not delete them unless you intend to remove that data.
+
+## Security and Legal Notice
+
+DVWA, Juice Shop, bWAPP, and the security-tool containers are intended for authorized training and testing. Keep the lab on a private network, do not expose vulnerable services to the public internet, and obtain permission before testing any system that you do not own.
+
+## License
+
+Project-owned code and documentation are licensed under the [Apache License
+2.0](LICENSE). Third-party components retain their original licenses; see
+[NOTICE](NOTICE) for the main third-party components used by this project.
