@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+
+[Desktop Entry]
+Name=Instant Lab
+Comment=Docker-based cybersecurity training lab
+Exec=instant-lab
+Terminal=true
+Type=Application
+Categories=Education;
+StartupNotify=true
