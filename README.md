@@ -126,17 +126,14 @@ docker stop CONTAINER_NAME
 docker start CONTAINER_NAME
 ```
 
-The status utility can optionally stop and remove all containers:
+The status utility asks before stopping and removing containers. Use it for normal lab cleanup:
 
 ```bash
 bash scripts/setup/status.sh
 ```
 
-Review the prompt carefully before confirming cleanup. To remove unused Docker resources, use:
-
-```bash
-docker system prune
-```
+Avoid `docker system prune` unless you intentionally want to remove unused
+Docker images, networks, containers, and build cache from the whole host.
 
 ## Docker Setup and Permissions
 
@@ -199,16 +196,27 @@ For ELK and Wazuh, allow extra time for the indexer and dashboard to initialize.
 ### Check script syntax
 
 ```bash
-bash -n main.sh
+bash -n start_main.sh
 find scripts -type f -name '*.sh' -exec bash -n {} +
 ```
 
 If available, ShellCheck can provide additional static analysis:
 
 ```bash
-shellcheck main.sh scripts/**/*.sh
+shellcheck start_main.sh scripts/**/*.sh
 ```
 > **Warning:** The `work/`, `msf/`, `wazuh/`, and `wazuh-agent/` directories may contain persistent data created by the lab services. Do not delete them unless you intend to remove that data.
+
+## Distribution
+
+## Ubuntu Snap
+
+Install the stable Snap from the Snap Store:
+
+```bash
+sudo snap install instant-lab --classic
+instant-lab
+```
 
 ## Security and Legal Notice
 
