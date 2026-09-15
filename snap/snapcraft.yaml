@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: Apache-2.0
+
+name: instant-lab
+base: core22
+version: '0.1.1'
+summary: Docker-based cybersecurity practice lab
+license: Apache-2.0
+website: https://github.com/swayan-basu/Instant_lab
+contact: https://github.com/swayan-basu/Instant_lab/issues
+source-code: https://github.com/swayan-basu/Instant_lab
+issues: https://github.com/swayan-basu/Instant_lab/issues
+
+description: |
+  Instant Lab is an interactive Docker-based cybersecurity practice lab for
+  Raspberry Pi and Linux systems. It launches security tools, intentionally
+  vulnerable web applications, and ELK/Wazuh monitoring services.
+
+  Use only in an isolated lab or against systems you own or are authorized to
+  test. Docker Engine must be installed separately on the host.
+
+confinement: classic
+grade: stable
+
+parts:
+  instant-lab:
+    plugin: dump
+    source: .
+    stage:
+      - -work/**
+      - -.generated/**
+      - -scripts/scanners/nuclei-templates/**
+      - -.git/**
+
+apps:
+  instant-lab:
+    command: bin/instant-lab
+    aliases:
+      - instantlab
+    desktop: usr/share/applications/instant-lab.desktop
+    environment:
+      LC_ALL: C.UTF-8
+      LANG: C.UTF-8
