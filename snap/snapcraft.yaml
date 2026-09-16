@@ -2,7 +2,7 @@
 
 name: instant-lab
 base: core22
-version: '0.1.1'
+version: '0.2.0'
 summary: Docker-based cybersecurity practice lab
 license: Apache-2.0
 website: https://github.com/swayan-basu/Instant_lab
@@ -18,8 +18,8 @@ description: |
   Use only in an isolated lab or against systems you own or are authorized to
   test. Docker Engine must be installed separately on the host.
 
-confinement: classic
-grade: stable
+confinement: strict
+grade: devel
 
 parts:
   instant-lab:
