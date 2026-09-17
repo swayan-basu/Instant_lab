@@ -21,6 +21,14 @@ description: |
 confinement: strict
 grade: devel
 
+plugs:
+  docker:
+    interface: docker
+  network:
+  network-bind:
+  home:
+  removable-media:
+
 parts:
   instant-lab:
     plugin: dump
