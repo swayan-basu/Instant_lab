@@ -209,12 +209,20 @@ shellcheck start_main.sh scripts/**/*.sh
 
 ## Distribution
 
-## Ubuntu Snap
+### Install via Snap Store
 
-Install the stable Snap from the Snap Store:
+You can install Instant Lab directly from the Snap Store. Because Instant Lab provisions and manages local containers, it requires access to the Docker daemon. 
+
+For security reasons, this connection must be granted manually after installation:
 
 ```bash
-sudo snap install instant-lab --classic
+# 1. Install the snap
+sudo snap install instant-lab
+
+# 2. Grant Docker access
+sudo snap connect instant-lab:docker docker:docker-daemon
+
+# 3. Launch Instant Lab
 instant-lab
 ```
 
