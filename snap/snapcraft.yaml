@@ -43,7 +43,6 @@ apps:
     command: bin/instant-lab
     aliases:
       - instantlab
-    desktop: usr/share/applications/instant-lab.desktop
     environment:
       LC_ALL: C.UTF-8
       LANG: C.UTF-8
