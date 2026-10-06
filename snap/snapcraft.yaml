@@ -20,13 +20,10 @@ description: |
 
 confinement: strict
 grade: stable
+
 plugs:
   docker:
     interface: docker
-  network:
-  network-bind:
-  home:
-  removable-media:
 
 parts:
   instant-lab:
@@ -43,6 +40,13 @@ apps:
     command: bin/instant-lab
     aliases:
       - instantlab
+    desktop: usr/share/applications/instant-lab.desktop
+    plugs:
+      - docker
+      - network
+      - network-bind
+      - home
+      - removable-media
     environment:
       LC_ALL: C.UTF-8
       LANG: C.UTF-8
