@@ -40,7 +40,7 @@ apps:
     command: bin/instant-lab
     aliases:
       - instantlab
-    desktop: usr/share/applications/instant-lab.desktop
+    desktop: snap/gui/instant-lab.desktop
     plugs:
       - docker
       - network
