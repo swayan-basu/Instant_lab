@@ -19,8 +19,7 @@ description: |
   test. Docker Engine must be installed separately on the host.
 
 confinement: strict
-grade: devel
-
+grade: stable
 plugs:
   docker:
     interface: docker
