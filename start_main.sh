@@ -33,14 +33,10 @@ echo -e "${CLR_INFO}[*] Manage test systems, security tools, and monitoring serv
 
 # 1. Docker Installation Check
 if ! command -v docker >/dev/null 2>&1; then
-    echo -e "${CLR_WARN}[!] Docker is not installed on this host.${CLR_RESET}"
-    read -r -p "Run installation setup script now? (y/n): " install_ans
-    if [[ "$install_ans" =~ ^[Yy]$ ]]; then
-        bash "${SETUP_DIR}/start_dock.sh"
-    else
-        echo -e "${CLR_DANGER}[-] Cannot proceed without Docker engine. Exiting.${CLR_RESET}"
-        exit 1
-    fi
+    echo -e "${CLR_DANGER}[-] Docker command line tool is not available to the Snap.${CLR_RESET}"
+    echo -e "${CLR_WARN}[*] Ensure Docker is installed on the host and connected:${CLR_RESET}"
+    echo -e "${CLR_WARN}    sudo snap connect instant-lab:docker${CLR_RESET}"
+    exit 1
 fi
 
 # 2. Docker Daemon Status Check
