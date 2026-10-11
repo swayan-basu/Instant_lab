@@ -41,8 +41,9 @@ fi
 
 # 2. Docker Daemon Status Check
 if ! docker info >/dev/null 2>&1; then
-    echo -e "${CLR_DANGER}[-] Error: Docker daemon is inactive or user lacks group rights.${CLR_RESET}"
-    echo -e "${CLR_WARN}[*] Fix: Run 'sudo systemctl start docker' or add user to 'docker' group.${CLR_RESET}"
+    echo -e "${CLR_DANGER}[-] Cannot communicate with Docker daemon.${CLR_RESET}"
+    echo -e "${CLR_WARN}[*] Make sure the Docker service is active and execute with sudo:${CLR_RESET}"
+    echo -e "${CLR_WARN}    sudo /snap/bin/instant-lab${CLR_RESET}"
     exit 1
 fi
 
