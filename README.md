@@ -211,6 +211,8 @@ shellcheck start_main.sh scripts/**/*.sh
 
 ### Install via Snap Store
 
+[![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/instant-lab)
+
 You can install Instant Lab directly from the Snap Store. Because Instant Lab provisions and manages local containers, it requires access to the Docker daemon. 
 
 For security reasons, this connection must be granted manually after installation:
