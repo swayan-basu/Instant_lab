@@ -4,7 +4,9 @@
 Name=Instant Lab
 Comment=Docker-based cybersecurity training lab
 Exec=instant-lab
+Icon=instant-lab
 Terminal=true
 Type=Application
-Categories=Education;
+Categories=Education;Security;
+Keywords=security;cybersecurity;docker;lab;training;
 StartupNotify=true
