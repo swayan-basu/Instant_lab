@@ -7,13 +7,27 @@
 set -euo pipefail
 
 # ==========================================
-# Base & Subdirectory Paths
+# Base & Writable Data Directory Paths
 # ==========================================
-BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
-TARGETS_DIR="${BASE_DIR}/scripts/targets"
-SCANNERS_DIR="${BASE_DIR}/scripts/scanners"
-SIEM_DIR="${BASE_DIR}/scripts/siem"
-SETUP_DIR="${BASE_DIR}/scripts/setup"
+# use $SNAP for code/scripts and $SNAP_USER_DATA for data
+if [ -n "${SNAP:-}" ]; then
+    APP_ROOT="$SNAP"
+    export INSTANT_LAB_DATA_DIR="$SNAP_USER_DATA"
+else
+    APP_ROOT="$(cd "$(dirname "$0")" && pwd)"
+    export INSTANT_LAB_DATA_DIR="$APP_ROOT"
+fi
+
+TARGETS_DIR="${APP_ROOT}/scripts/targets"
+SCANNERS_DIR="${APP_ROOT}/scripts/scanners"
+SIEM_DIR="${APP_ROOT}/scripts/siem"
+SETUP_DIR="${APP_ROOT}/scripts/setup"
+
+# Ensure writable runtime directories exist
+mkdir -p "${INSTANT_LAB_DATA_DIR}/work" \
+         "${INSTANT_LAB_DATA_DIR}/.generated" \
+         "${INSTANT_LAB_DATA_DIR}/scripts/scanners/msf" \
+         "${INSTANT_LAB_DATA_DIR}/scripts/scanners/nuclei-templates"
 
 # ==========================================
 # Terminal Color Palette
@@ -52,20 +66,23 @@ fi
 
 echo -e "${CLR_SUCCESS}[+] Docker daemon operational.${CLR_RESET}"
 
-# 3. Dedicated Lab Network Setup
-if ! docker network inspect instant_lab_network >/dev/null 2>&1; then
-    echo -e "${CLR_INFO}[*] Creating isolated network 'instant_lab_network'...${CLR_RESET}"
-    docker network create instant_lab_network >/dev/null
-    echo -e "${CLR_SUCCESS}[+] Bridge network 'instant_lab_network' established.${CLR_RESET}"
+# Dedicated Lab Network Setup
+WAZUH_NETWORK_NAME="instant_lab_network"
+if ! docker network inspect "$WAZUH_NETWORK_NAME" >/dev/null 2>&1; then
+    echo -e "${CLR_INFO}[*] Creating isolated network '${WAZUH_NETWORK_NAME}'...${CLR_RESET}"
+    docker network create --driver bridge "$WAZUH_NETWORK_NAME" >/dev/null
+    echo -e "${CLR_SUCCESS}[+] Bridge network '${WAZUH_NETWORK_NAME}' established.${CLR_RESET}"
 fi
 
-# Helper: Port Availability Check
+# Helper: Smart Port Availability Check with Container Identification
 check_port() {
     local port="$1"
+    local service_name="$2"
+    local access_url="$3"
     local in_use=0
 
-    if command -v ss >/dev/null 2>&1; then
-        if ss -tuln | grep -qE "(:|\])${port}[[:space:]]"; then
+    if command -v ss >/dev/null 2>&1 && ss -H -ltn >/dev/null 2>&1; then
+        if ss -H -ltn "sport = :${port}" 2>/dev/null | grep -q .; then
             in_use=1
         fi
     elif command -v lsof >/dev/null 2>&1; then
@@ -76,15 +93,11 @@ check_port() {
         if netstat -tuln | grep -qE "(:|\])${port}[[:space:]]"; then
             in_use=1
         fi
-    else
-    echo -e "${CLR_WARN}[!] Cannot check port ${port}.${CLR_RESET}"
-    echo -e "${CLR_WARN}[*] Install a port-checking tool with:${CLR_RESET}"
-    echo -e "${CLR_WARN}    sudo apt install iproute2${CLR_RESET}"
     fi
 
     if [[ "$in_use" -eq 1 ]]; then
-        echo -e "${CLR_DANGER}[!] Port Conflict: Port ${port} is already in use.${CLR_RESET}"
-        echo -e "${CLR_WARN}[!] Free the port before deploying this service.${CLR_RESET}"
+        echo -e "${CLR_SUCCESS}[*] ${service_name} is already running and active!${CLR_RESET}"
+        echo -e "${CLR_INFO}[*] Access it directly at: ${access_url}${CLR_RESET}"
         return 1
     fi
 
@@ -137,31 +150,29 @@ while true; do
         bash "${SCANNERS_DIR}/start_nuclei.sh"
         ;;
       4)
-        if check_port 8080; then
+        if check_port 8080 "DVWA" "http://localhost:8080"; then
             echo -e "${CLR_DANGER}[+] Launching DVWA target at http://localhost:8080...${CLR_RESET}"
             bash "${TARGETS_DIR}/start_dvwa.sh"
         fi
         ;;
       5)
-        if check_port 3000; then
+        if check_port 3000 "OWASP Juice Shop" "http://localhost:3000"; then
             echo -e "${CLR_DANGER}[+] Launching OWASP Juice Shop target at http://localhost:3000...${CLR_RESET}"
             bash "${TARGETS_DIR}/start_juice.sh"
         fi
         ;;
       6)
-        if check_port 8200; then
+        if check_port 8200 "bWAPP" "http://localhost:8200/install.php"; then
             echo -e "${CLR_WARN}[+] Initializing bWAPP target...${CLR_RESET}"
             bash "${TARGETS_DIR}/start_bwapp.sh"
         fi
         ;;
       7)
-        if check_port 9200 && check_port 5601; then
-            echo -e "${CLR_WARN}[+] Initializing Elastic Stack (ELK)...${CLR_RESET}"
-            bash "${SIEM_DIR}/start_elk.sh"
-        fi
+        echo -e "${CLR_WARN}[+] Initializing Elastic Stack (ELK)...${CLR_RESET}"
+        bash "${SIEM_DIR}/start_elk.sh"
         ;;
       8)
-        if check_port 1514 && check_port 1515 && check_port 55000; then
+        if check_port 7608 "Wazuh Dashboard" "https://localhost:7608"; then
             echo -e "${CLR_WARN}[+] Deploying Wazuh SIEM cluster...${CLR_RESET}"
             bash "${SIEM_DIR}/start_wazuh.sh"
         fi
