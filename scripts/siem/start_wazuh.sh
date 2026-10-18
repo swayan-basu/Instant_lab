@@ -5,85 +5,43 @@
 # Repository: https://github.com/swayan-basu/Instant_lab
 
 set -euo pipefail
-echo "[+] Installing docker..."
-if ! command -v docker >/dev/null 2>&1; then
-  sudo apt update
-  sudo apt install -y docker.io docker-compose-plugin git findutils
-  if command -v systemctl >/dev/null 2>&1; then
-    sudo systemctl enable --now docker
-  else
-    sudo service docker start || true
-  fi
-  echo "[*] docker installed and started"
-else
-  echo "[*] docker is already installed."
-fi
 
-if ! command -v find >/dev/null 2>&1; then
-  sudo apt update
-  sudo apt install -y findutils
-fi
-
-ensure_docker_compose() {
-  COMPOSE_CMD=()
-
-  if docker compose version >/dev/null 2>&1; then
-    COMPOSE_CMD=(docker compose)
-    return 0
-  fi
-
-  if command -v docker-compose >/dev/null 2>&1; then
-    COMPOSE_CMD=(docker-compose)
-    return 0
-  fi
-
-  echo "[+] installing docker compose support..."
-  sudo apt update
-  sudo apt install -y docker-compose-plugin docker-compose
-
-  if docker compose version >/dev/null 2>&1; then
-    COMPOSE_CMD=(docker compose)
-    return 0
-  fi
-
-  if command -v docker-compose >/dev/null 2>&1; then
-    COMPOSE_CMD=(docker-compose)
-    return 0
-  fi
-
-  echo "[-] docker compose is not available"
-  exit 1
-}
-
-ensure_docker_compose
-
-# Add current user (or invoking user when run with sudo) to docker group if not already a member
-target_user="${SUDO_USER:-$(id -un)}"
-if [ "$target_user" = "root" ]; then
-  echo "[*] running as root; skipping adding root to docker group"
-else
-  if ! id -nG "$target_user" | grep -qw docker; then
-    sudo usermod -aG docker "$target_user"
-    echo "[*] added $target_user to docker group — you may need to log out/in for this to take effect"
-  else
-    echo "[*] $target_user is already in docker group"
-  fi
+# Keep the Docker CLI shipped inside the Snap ahead of host Snap commands.
+if [ -n "${SNAP:-}" ] && [ -x "$SNAP/bin/docker" ]; then
+  export PATH="$SNAP/bin:$PATH"
 fi
 
 if ! docker info >/dev/null 2>&1; then
-  echo "[-] Docker is not accessible."
-  echo "[*] Log out and log in again after joining the docker group."
+  echo "[-] Docker daemon is not accessible. Ensure the docker plug is connected."
+  exit 1
+fi
+
+COMPOSE_CMD=()
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE_CMD=(docker compose)
+elif [ -x /usr/libexec/docker/cli-plugins/docker-compose ]; then
+  COMPOSE_CMD=(/usr/libexec/docker/cli-plugins/docker-compose)
+elif command -v docker-compose >/dev/null 2>&1; then
+  COMPOSE_CMD=(docker-compose)
+else
+  echo "[-] docker compose is not available"
   exit 1
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-WAZUH_DATA_DIR="${ROOT_DIR}/wazuh"
-WAZUH_STACK_DIR="${ROOT_DIR}/wazuh-docker"
+WAZUH_DATA_ROOT="${INSTANT_LAB_DATA_DIR:-$ROOT_DIR}"
+WAZUH_DATA_DIR="${WAZUH_DATA_ROOT}/wazuh"
+WAZUH_SOURCE_DIR="${ROOT_DIR}/wazuh-docker"
+if [ "$WAZUH_DATA_ROOT" = "$ROOT_DIR" ]; then
+  WAZUH_STACK_DIR="$WAZUH_SOURCE_DIR"
+else
+  WAZUH_STACK_DIR="${WAZUH_DATA_ROOT}/wazuh-docker"
+fi
 WAZUH_STACK_VERSION="v4.14.6"
 WAZUH_COMPOSE_DIR="${WAZUH_STACK_DIR}/single-node"
-WAZUH_NETWORK_NAME="wazuh-lab"
-WAZUH_OVERRIDE_DIR="${ROOT_DIR}/.generated/wazuh"
+WAZUH_NETWORK_NAME="instant_lab_network"
+WAZUH_OVERRIDE_DIR="${WAZUH_DATA_ROOT}/.generated/wazuh"
 WAZUH_OVERRIDE_FILE="${WAZUH_OVERRIDE_DIR}/single-node.override.yml"
 
 ensure_wazuh_network() {
@@ -97,14 +55,22 @@ write_wazuh_override_file() {
   cat > "$WAZUH_OVERRIDE_FILE" <<EOF
 services:
   wazuh.manager:
+    # Manager traffic is consumed by the agent on the Docker network. Do not
+    # publish these ports on the host, where they can conflict with services
+    # already using the standard Wazuh ports.
+    ports: !reset []
     networks:
       - default
       - wazuh-lab
   wazuh.indexer:
+    # Elasticsearch owns the host's 9200 endpoint in Instant Lab.
+    ports: !reset []
     networks:
       - default
       - wazuh-lab
   wazuh.dashboard:
+    ports: !override
+      - "7608:5601"
     networks:
       - default
       - wazuh-lab
@@ -121,29 +87,22 @@ if [ ! -d "$WAZUH_DATA_DIR/data" ]; then
   mkdir -p "$WAZUH_DATA_DIR/data"
 fi
 
-echo "[+] Configuring host kernel for the Wazuh indexer..."
-
-echo "vm.max_map_count=262144" |
-  sudo tee /etc/sysctl.d/99-wazuh-indexer.conf >/dev/null
-
-sudo sysctl --system >/dev/null
-
-if [ -e "$WAZUH_STACK_DIR" ] && [ ! -d "$WAZUH_STACK_DIR/.git" ]; then
-  echo "[*] removing existing non-git Wazuh Docker directory at $WAZUH_STACK_DIR"
-  rm -rf "$WAZUH_STACK_DIR"
-fi
-
-if [ ! -d "$WAZUH_STACK_DIR/.git" ]; then
-  echo "[*] cloning Wazuh Docker stack at $WAZUH_STACK_VERSION"
-  git clone https://github.com/wazuh/wazuh-docker.git "$WAZUH_STACK_DIR"
-  git -C "$WAZUH_STACK_DIR" checkout "$WAZUH_STACK_VERSION"
+if [ ! -d "$WAZUH_COMPOSE_DIR" ]; then
+  if [ "$WAZUH_STACK_DIR" != "$WAZUH_SOURCE_DIR" ] && [ -d "$WAZUH_SOURCE_DIR/single-node" ]; then
+    echo "[*] copying bundled Wazuh Docker stack to writable application data"
+    mkdir -p "$(dirname "$WAZUH_STACK_DIR")"
+    cp -a "$WAZUH_SOURCE_DIR" "$WAZUH_STACK_DIR"
+  else
+    echo "[*] cloning Wazuh Docker stack at $WAZUH_STACK_VERSION"
+    mkdir -p "$(dirname "$WAZUH_STACK_DIR")"
+    git clone https://github.com/wazuh/wazuh-docker.git "$WAZUH_STACK_DIR"
+    git -C "$WAZUH_STACK_DIR" checkout "$WAZUH_STACK_VERSION"
+  fi
 else
-  if [ -w "$WAZUH_STACK_DIR/.git" ] && [ -w "$WAZUH_STACK_DIR" ]; then
+  if [ -d "$WAZUH_STACK_DIR/.git" ] && [ -w "$WAZUH_STACK_DIR/.git" ] && [ -w "$WAZUH_STACK_DIR" ]; then
     echo "[*] updating existing Wazuh Docker stack checkout"
     git -C "$WAZUH_STACK_DIR" fetch --tags origin >/dev/null
     git -C "$WAZUH_STACK_DIR" checkout "$WAZUH_STACK_VERSION"
-  else
-    echo "[*] existing Wazuh Docker checkout is not writable; using current local version"
   fi
 fi
 
@@ -189,4 +148,4 @@ echo "[+] Starting Wazuh single-node stack..."
 
 echo "[*] Wazuh stack started. Check the dashboard with:"
 echo "    ${COMPOSE_CMD[*]} -f \"$WAZUH_COMPOSE_DIR/docker-compose.yml\" -f \"$WAZUH_OVERRIDE_FILE\" ps"
-echo "    https://localhost:7608" default credentials: admin / SecretPassword
+echo "    https://localhost:7608 (default credentials: admin / SecretPassword)"
