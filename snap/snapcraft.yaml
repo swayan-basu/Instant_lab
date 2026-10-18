@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: instant-lab
+title: Instant Lab
+icon: snap/gui/instant-lab.png
 base: core22
-version: '0.2.0'
+version: '0.2.2'
 summary: Docker-based cybersecurity practice lab
 license: Apache-2.0
 website: https://github.com/swayan-basu/Instant_lab
@@ -18,6 +20,7 @@ description: |
   Use only in an isolated lab or against systems you own or are authorized to
   test. Docker Engine must be installed separately on the host.
 
+
 confinement: strict
 grade: stable
 plugs:
@@ -29,14 +32,41 @@ plugs:
   removable-media:
 
 parts:
-  instant-lab:
+  instant-lab-app:
     plugin: dump
     source: .
     stage:
       - -work/**
       - -.generated/**
       - -scripts/scanners/nuclei-templates/**
+      - -scripts/scanners/msf/**
+      - -scripts/siem/logstash/**
+      - -scripts/siem/wazuh-agent/data/**
+      - -wazuh/**
+      - -wazuh-docker/single-node/config/wazuh_indexer_ssl_certs/**
+      - -wazuh-docker/multi-node/config/wazuh_indexer_ssl_certs/**
+      - -parts/**
+      - -prime/**
+      - -stage/**
+      - -overlay/**
       - -.git/**
+      - -wazuh-docker/.git/**
+    stage-packages:
+      - curl
+      - git
+      - findutils
+    override-build: |
+      craftctl default
+      # Download standalone docker-compose for ARM64/AMD64 directly into the snap bin
+      mkdir -p $CRAFT_PART_INSTALL/bin
+      ARCH=$(uname -m)
+      if [ "$ARCH" = "aarch64" ]; then
+        COMPOSE_ARCH="aarch64"
+      else
+        COMPOSE_ARCH="x86_64"
+      fi
+      curl -sL --http1.1 --retry 5 "https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-linux-$COMPOSE_ARCH" -o $CRAFT_PART_INSTALL/bin/docker-compose
+      chmod +x $CRAFT_PART_INSTALL/bin/docker-compose
 
 apps:
   instant-lab:
