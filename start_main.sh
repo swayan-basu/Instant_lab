@@ -6,6 +6,9 @@
 
 set -euo pipefail
 
+source "$(cd "$(dirname "$0")" && pwd)/scripts/setup/docker_env.sh"
+source "$(cd "$(dirname "$0")" && pwd)/scripts/setup/port_check.sh"
+
 # ==========================================
 # Base & Subdirectory Paths
 # ==========================================
@@ -25,7 +28,7 @@ CLR_INFO="\033[38;2;56;139;253m"      # Cobalt Blue (Scanners / Net)
 CLR_WARN="\033[38;2;210;153;34m"      # Amber Gold (Warnings / Status)
 CLR_MUTED="\033[38;2;139;148;158m"    # Slate Gray (Subtexts / Borders)
 
-clear
+clear 2>/dev/null || true
 echo -e "${CLR_MUTED}============================================================${CLR_RESET}"
 echo -e "${CLR_SUCCESS}[*]   /^_^\\  INSTANT LAB — RASPBERRY PI & DOCKER  /^_^\\   ${CLR_RESET}"
 echo -e "${CLR_MUTED}============================================================${CLR_RESET}"
@@ -33,9 +36,8 @@ echo -e "${CLR_INFO}[*] Manage test systems, security tools, and monitoring serv
 
 # 1. Docker Installation Check
 if ! command -v docker >/dev/null 2>&1; then
-    echo -e "${CLR_DANGER}[-] Docker command line tool is not available to the Snap.${CLR_RESET}"
-    echo -e "${CLR_WARN}[*] Ensure Docker is installed on the host and connected:${CLR_RESET}"
-    echo -e "${CLR_WARN}    sudo snap connect instant-lab:docker${CLR_RESET}"
+    echo -e "${CLR_DANGER}[-] System Docker command line tool is not available.${CLR_RESET}"
+    echo -e "${CLR_WARN}[*] Install Docker on the host before starting Instant Lab.${CLR_RESET}"
     exit 1
 fi
 
@@ -55,38 +57,6 @@ if ! docker network inspect instant_lab_network >/dev/null 2>&1; then
     docker network create instant_lab_network >/dev/null
     echo -e "${CLR_SUCCESS}[+] Bridge network 'instant_lab_network' established.${CLR_RESET}"
 fi
-
-# Helper: Port Availability Check
-check_port() {
-    local port="$1"
-    local in_use=0
-
-    if command -v ss >/dev/null 2>&1; then
-        if ss -tuln | grep -qE "(:|\])${port}[[:space:]]"; then
-            in_use=1
-        fi
-    elif command -v lsof >/dev/null 2>&1; then
-        if lsof -Pi :"$port" -sTCP:LISTEN -t >/dev/null 2>&1; then
-            in_use=1
-        fi
-    elif command -v netstat >/dev/null 2>&1; then
-        if netstat -tuln | grep -qE "(:|\])${port}[[:space:]]"; then
-            in_use=1
-        fi
-    else
-    echo -e "${CLR_WARN}[!] Cannot check port ${port}.${CLR_RESET}"
-    echo -e "${CLR_WARN}[*] Install a port-checking tool with:${CLR_RESET}"
-    echo -e "${CLR_WARN}    sudo apt install iproute2${CLR_RESET}"
-    fi
-
-    if [[ "$in_use" -eq 1 ]]; then
-        echo -e "${CLR_DANGER}[!] Port Conflict: Port ${port} is already in use.${CLR_RESET}"
-        echo -e "${CLR_WARN}[!] Free the port before deploying this service.${CLR_RESET}"
-        return 1
-    fi
-
-    return 0
-}
 
 # Initial Container Check
 read -r -p "Inspect running lab containers? (y/n): " check_status
@@ -110,9 +80,9 @@ while true; do
     echo "    5. OWASP Juice Shop (Web Port: 3000)"
     echo "    6. bWAPP (Web Port: 8200)"
     echo -e "${CLR_WARN}  [ SOC & SIEM Stack ]${CLR_RESET}"
-    echo "    7. ELK Stack (Ports: 9200, 5601)"
-    echo "    8. Wazuh Stack (Manager, Indexer, Dashboard)"
-    echo "    9. Wazuh Agent"
+    echo "    7. ELK Stack (Ports: 9201, 5602, 5045, 9601)"
+    echo "    8. Wazuh Stack (Dashboard: 7608)"
+    echo "    9. Wazuh Agent (Docker network only)"
     echo -e "${CLR_MUTED}  [ Lab Control ]${CLR_RESET}"
     echo "    10. Container Status Monitor"
     echo "    0. Exit"
@@ -134,31 +104,34 @@ while true; do
         bash "${SCANNERS_DIR}/start_nuclei.sh"
         ;;
       4)
-        if check_port 8080; then
+        if check_port 8080 instant_dvwa DVWA; then
             echo -e "${CLR_DANGER}[+] Launching DVWA target at http://localhost:8080...${CLR_RESET}"
             bash "${TARGETS_DIR}/start_dvwa.sh"
         fi
         ;;
       5)
-        if check_port 3000; then
+        if check_port 3000 juice-shop "Juice Shop"; then
             echo -e "${CLR_DANGER}[+] Launching OWASP Juice Shop target at http://localhost:3000...${CLR_RESET}"
             bash "${TARGETS_DIR}/start_juice.sh"
         fi
         ;;
       6)
-        if check_port 8200; then
+        if check_port 8200 instant_bwapp bWAPP; then
             echo -e "${CLR_WARN}[+] Initializing bWAPP target...${CLR_RESET}"
             bash "${TARGETS_DIR}/start_bwapp.sh"
         fi
         ;;
       7)
-        if check_port 9200 && check_port 5601; then
+        if check_port 9201 elasticsearch Elasticsearch &&
+           check_port 5602 kibana Kibana &&
+           check_port 5045 logstash Logstash &&
+           check_port 9601 logstash Logstash; then
             echo -e "${CLR_WARN}[+] Initializing Elastic Stack (ELK)...${CLR_RESET}"
             bash "${SIEM_DIR}/start_elk.sh"
         fi
         ;;
       8)
-        if check_port 1514 && check_port 1515 && check_port 55000; then
+        if check_port "${WAZUH_DASHBOARD_HOST_PORT:-7608}" wazuh.dashboard "Wazuh dashboard"; then
             echo -e "${CLR_WARN}[+] Deploying Wazuh SIEM cluster...${CLR_RESET}"
             bash "${SIEM_DIR}/start_wazuh.sh"
         fi
