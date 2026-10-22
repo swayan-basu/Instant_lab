@@ -5,6 +5,8 @@
 # Repository: https://github.com/swayan-basu/Instant_lab
 set -euo pipefail
 
+source "$(cd "$(dirname "$0")" && pwd)/../setup/docker_env.sh"
+
 USER_NAME="${SUDO_USER:-$(id -un)}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -137,13 +139,16 @@ else
       tail -f /dev/null
 fi
 
-read -r -p "Install SOC tools in the container? (y/n) " install_soc_tools
-if [[ "$install_soc_tools" =~ ^[Yy]([Ee][Ss])?$ ]]; then
-    echo "[+] Installing SOC tools..."
-    docker exec -it "$CONTAINER_NAME" \
-        bash /soc_tools.sh --yes
+if [[ -t 0 && -t 1 ]]; then
+    read -r -p "Install SOC tools in the container? (y/n) " install_soc_tools
+    if [[ "$install_soc_tools" =~ ^[Yy]([Ee][Ss])?$ ]]; then
+        echo "[+] Installing SOC tools..."
+        docker exec -it "$CONTAINER_NAME" bash /soc_tools.sh --yes
+    else
+        echo "[*] Skipping SOC tools installation"
+    fi
 else
-    echo "[*] Skipping SOC tools installation"
+    echo "[*] Non-interactive terminal detected; skipping SOC tools installation"
 fi
 
 echo
@@ -151,4 +156,8 @@ echo "[+] RKali container is running"
 echo "[+] Container: $CONTAINER_NAME"
 echo "[+] **WELCOME TO Kali Linux...**"
 
-docker exec -it "$CONTAINER_NAME" bash
+if [[ -t 0 && -t 1 ]]; then
+    docker exec -it "$CONTAINER_NAME" bash
+else
+    echo "[*] Container left running; attach with: docker exec -it $CONTAINER_NAME bash"
+fi
