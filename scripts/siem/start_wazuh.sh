@@ -5,6 +5,15 @@
 # Repository: https://github.com/swayan-basu/Instant_lab
 
 set -euo pipefail
+
+source "$(cd "$(dirname "$0")" && pwd)/../setup/docker_env.sh"
+
+if [[ "$EUID" -ne 0 && ! -t 0 ]] && ! sudo -n true 2>/dev/null; then
+  echo "[-] This script needs sudo authentication for Docker and kernel setup."
+  echo "[*] Run it from an interactive terminal, or authenticate first with: sudo -v"
+  exit 1
+fi
+
 echo "[+] Installing docker..."
 if ! command -v docker >/dev/null 2>&1; then
   sudo apt update
@@ -57,7 +66,7 @@ ensure_docker_compose() {
 
 ensure_docker_compose
 
-# Add current user (or invoking user when run with sudo) to docker group if not already a member
+# Add current user to docker group if not already a member
 target_user="${SUDO_USER:-$(id -un)}"
 if [ "$target_user" = "root" ]; then
   echo "[*] running as root; skipping adding root to docker group"
@@ -83,6 +92,14 @@ WAZUH_STACK_DIR="${ROOT_DIR}/wazuh-docker"
 WAZUH_STACK_VERSION="v4.14.6"
 WAZUH_COMPOSE_DIR="${WAZUH_STACK_DIR}/single-node"
 WAZUH_NETWORK_NAME="wazuh-lab"
+WAZUH_DASHBOARD_HOST_PORT="${WAZUH_DASHBOARD_HOST_PORT:-7608}"
+
+case "$WAZUH_DASHBOARD_HOST_PORT" in
+  9200|5601)
+    echo "[-] WAZUH_DASHBOARD_HOST_PORT cannot use ELK port $WAZUH_DASHBOARD_HOST_PORT"
+    exit 1
+    ;;
+esac
 WAZUH_OVERRIDE_DIR="${ROOT_DIR}/.generated/wazuh"
 WAZUH_OVERRIDE_FILE="${WAZUH_OVERRIDE_DIR}/single-node.override.yml"
 
@@ -97,14 +114,22 @@ write_wazuh_override_file() {
   cat > "$WAZUH_OVERRIDE_FILE" <<EOF
 services:
   wazuh.manager:
+    # Manager traffic is consumed by the agent on the Docker network. Do not
+    # publish these ports on the host, where they can conflict with services
+    # already using the standard Wazuh ports.
+    ports: !reset []
     networks:
       - default
       - wazuh-lab
   wazuh.indexer:
+    # Keep the Wazuh indexer internal; ELK uses the host's 9201 endpoint.
+    ports: !reset []
     networks:
       - default
       - wazuh-lab
   wazuh.dashboard:
+    ports: !override
+      - "${WAZUH_DASHBOARD_HOST_PORT}:5601"
     networks:
       - default
       - wazuh-lab
@@ -189,4 +214,5 @@ echo "[+] Starting Wazuh single-node stack..."
 
 echo "[*] Wazuh stack started. Check the dashboard with:"
 echo "    ${COMPOSE_CMD[*]} -f \"$WAZUH_COMPOSE_DIR/docker-compose.yml\" -f \"$WAZUH_OVERRIDE_FILE\" ps"
-echo "    https://localhost:7608" default credentials: admin / SecretPassword
+echo "    https://localhost:${WAZUH_DASHBOARD_HOST_PORT} (default credentials: admin / SecretPassword)"
+
