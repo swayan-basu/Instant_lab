@@ -6,6 +6,8 @@
 
 set -euo pipefail
 
+source "$(cd "$(dirname "$0")" && pwd)/../setup/docker_env.sh"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE="projectdiscovery/nuclei:latest"
 NETWORK_NAME="instant_lab_network"
@@ -47,7 +49,12 @@ echo -e "${CLR_GREEN}[+] Nuclei will use network: $NETWORK_NAME${CLR_RESET}"
 echo -e "${CLR_MUTED}[*] Targets must be reachable from this Docker network.${CLR_RESET}"
 echo
 
-docker run -it --rm \
+DOCKER_TTY_FLAGS=(-i)
+if [[ -t 0 && -t 1 ]]; then
+    DOCKER_TTY_FLAGS=(-it)
+fi
+
+docker run "${DOCKER_TTY_FLAGS[@]}" --rm \
     --name instant_nuclei \
     --network "$NETWORK_NAME" \
     -v "$TEMPLATES_DIR:/root/nuclei-templates" \
