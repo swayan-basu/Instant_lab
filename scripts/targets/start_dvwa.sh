@@ -6,6 +6,8 @@
 
 set -euo pipefail
 
+source "$(cd "$(dirname "$0")" && pwd)/../setup/docker_env.sh"
+
 IMAGE="kaakaww/dvwa-docker:latest"
 CONTAINER_NAME="instant_dvwa"
 HOST_PORT=8080
