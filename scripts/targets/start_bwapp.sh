@@ -6,6 +6,8 @@
 
 set -euo pipefail
 
+source "$(cd "$(dirname "$0")" && pwd)/../setup/docker_env.sh"
+
 IMAGE="cambarts/arm-bwapp"
 CONTAINER_NAME="instant_bwapp"
 HOST_PORT=8200
