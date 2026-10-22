@@ -6,6 +6,8 @@
 
 set -euo pipefail
 
+source "$(cd "$(dirname "$0")" && pwd)/../setup/docker_env.sh"
+
 IMAGE="bkimminich/juice-shop:latest"
 CONTAINER_NAME="juice-shop"
 HOST_PORT=3000
