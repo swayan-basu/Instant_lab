@@ -6,6 +6,8 @@
 
 set -euo pipefail
 
+source "$(cd "$(dirname "$0")" && pwd)/docker_env.sh"
+
 if ! command -v docker >/dev/null 2>&1; then
     echo "Error: Docker is not installed or not available in PATH." >&2
     exit 1
