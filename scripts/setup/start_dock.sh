@@ -6,6 +6,8 @@
 
 set -euo pipefail
 
+source "$(cd "$(dirname "$0")" && pwd)/docker_env.sh"
+
 CURRENT_USER="${SUDO_USER:-${USER:-}}"
 
 echo "[+] Installing Docker prerequisites..."
@@ -29,9 +31,14 @@ if [[ "$EUID" -eq 0 ]]; then
     SUDO=()
 else
     SUDO=(sudo)
+    if ! sudo -n true 2>/dev/null && [[ ! -t 0 ]]; then
+        echo "[-] This script needs sudo authentication in an interactive terminal."
+        echo "[*] Run it from a terminal, or authenticate first with: sudo -v"
+        exit 1
+    fi
 fi
 
-if ! command -v docker >/dev/null 2>&1; then
+if ! dpkg-query -W -f='${Status}' docker.io 2>/dev/null | grep -q '^install ok installed$'; then
     "${SUDO[@]}" apt-get update
     "${SUDO[@]}" apt-get install -y docker.io docker-compose git
     echo "[*] Docker installed"
@@ -58,6 +65,11 @@ fi
 
 if ! command -v docker >/dev/null 2>&1; then
     echo "[-] Docker is not available after installation."
+    exit 1
+fi
+
+if [[ "$(command -v docker)" != "/usr/bin/docker" ]]; then
+    echo "[-] The system Docker binary was not found at /usr/bin/docker."
     exit 1
 fi
 
