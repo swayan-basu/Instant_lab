@@ -4,6 +4,8 @@ Instant Lab is a Docker-based cybersecurity practice environment for Raspberry P
 
 Use this project only in an isolated lab or against systems you own or are explicitly authorized to test.
 
+> 📦 **Quick Install:** Don't want to clone manually? Install officially via Snap: `sudo snap install instant-lab`
+
 ## Features
 
 - Interactive launcher for all lab services
@@ -18,7 +20,8 @@ Use this project only in an isolated lab or against systems you own or are expli
 
 ## Requirements
 
-- Linux system, Raspberry Pi, or another linux compatible computer
+- Linux system, Raspberry Pi (or any ARM-based system), or another linux compatible computer
+- Debian/Ubuntu package installation of `docker.io` and `docker-compose` (Docker Snap is not used)
 - At least 4 GB RAM recommended for the ELK or Wazuh stacks
 
 The security-tool containers may require additional CPU, memory, and disk space. Start only the services needed for your exercise.
@@ -74,6 +77,21 @@ bash scripts/siem/start_elk.sh
 bash scripts/siem/start_wazuh.sh
 bash scripts/siem/start_wazuh_agent.sh
 ```
+
+The launchers may install Docker packages, start the Docker service, add the
+current user to the `docker` group, and configure host settings required by
+Wazuh. Run them from an interactive terminal with `sudo` available. For a
+non-interactive run, authenticate before starting the launcher:
+
+```bash
+sudo -v
+bash scripts/siem/start_wazuh.sh
+```
+
+The Wazuh agent launcher creates the `wazuh-lab` network when needed and
+starts the local Wazuh manager stack automatically when no manager is already
+running. If `WAZUH_MANAGER_SERVER` is set to a custom manager, that manager
+must already be reachable by the agent.
 
 ## Docker Network
 
@@ -143,7 +161,7 @@ If Docker is not installed, run:
 bash scripts/setup/start_dock.sh
 ```
 
-The setup script installs Docker on Debian-based systems, starts the Docker service, and adds the current user to the `docker` group. Log out and back in, or run:
+The setup script installs `docker.io` and `docker-compose` from Debian-based system repositories, starts the Docker service, and adds the current user to the `docker` group. If the Docker Snap is installed, remove only that conflicting package with `sudo snap remove docker` before running the lab. Log out and back in after group changes, or run:
 
 ```bash
 newgrp docker
